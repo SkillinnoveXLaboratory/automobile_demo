@@ -1,136 +1,130 @@
-# skills.md — AmpCare Prototype QA & Cross-Check Skill
+# skills.md — AUTORYNX Reference-Match QA Skill
 
-Use this file as a **repeatable review skill** before every client demo or Vercel deploy.
-It can be followed by a person or handed to an AI assistant ("Run skills.md on this project").
-Go section by section and tick each item. Anything that fails → fix → re-run the full list.
+Goal: the prototype must look **≥ 95 % identical** to the client reference (`qa/reference.png`, 11 screens) and every feature must work without glitches.
+Run this full skill before every client demo and every Vercel deploy. Repeat the loop until every box is ticked.
 
 ---
 
-## 0. How to run the check
+## 0. Setup (once)
 
 ```bash
-npm install
-npm run build        # must finish with no errors or warnings about missing exports
-npm run preview      # open http://localhost:4173
+npm install            # app
+npm run build
+npm run preview -- --port 4174        # keep running in a second terminal
+cd qa && npm install                  # QA tools (puppeteer-core + sharp, not deployed)
 ```
+If Chrome isn't at the default Windows path, set `CHROME=<path to chrome or msedge>`.
 
-Check at three sizes:
+## 1. The loop (repeat until ≥ 95 %)
 
-| Size | How | What should happen |
-|---|---|---|
-| Desktop (≥ 961px) | normal browser | Android phone frame centered + demo guide panel on the left |
-| Tablet (601–960px) | resize window | Phone frame only, guide panel hidden |
-| Phone (≤ 600px) | DevTools → 390×844, or open on a real phone | Full-screen app, no fake frame, no fake status bar, no gesture bar |
+1. `cd qa && npm run compare` writes `qa/out/compare/s1-…png … s11-web.png`. Each image shows the **reference on the left and the app on the right** at the same size (390 × 768).
+2. Open each image and score it with section 3. Write every difference in the issue log (section 7).
+3. Fix in `src/styles.css` (spacing and colors) or the screen file (content). Prefer changing a token or measurement over adding new rules.
+4. `npm run build`, run the compare again, and re-score.
+5. When every screen is ≥ 95 %, run `npm run test` (section 4). It must show **70 passed, 0 failed, NO CONSOLE ERRORS**.
 
-Clear old data before each run: Profile → Settings → **Reset demo data** (or `localStorage.clear()`).
+> Scoring rule per screen: start at 100. Subtract **5** for each wrong color or missing element, **3** for each element misplaced by more than 10 px, and **1** for each size or weight that looks off. A screen passes at ≥ 95.
 
----
+## 2. Screen ↔ code map
 
-## 1. Design consistency (must match the reference style)
+| # | Reference screen | Code | Route / how to reach |
+|---|---|---|---|
+| 1 | Splash Screen | `screens/Auth.jsx › Splash` | app start |
+| 2 | Login / Sign Up | `Auth.jsx › Login, Signup, Forgot` | Get Started |
+| 3 | Home Dashboard | `screens/Home.jsx › Home` | after login |
+| 4 | Vehicle Selection | `screens/Vehicle.jsx › VehicleSelect` | Two-Wheeler tile / Explore Now |
+| 5 | 3D Vehicle Anatomy | `Vehicle.jsx › Anatomy` | Explore Anatomy |
+| 6 | Exploded View | `Vehicle.jsx › Exploded` | Electrical → Headlamp, or headlamp hotspot (tap twice) |
+| 7 | Part Details & Buy | `screens/Parts.jsx › PartDetails` | View Part / Recently Viewed |
+| 8 | Nut & Bolt Information | `Parts.jsx › NutBolt` | Part → Nut & Bolt Details |
+| 9 | Installation Steps | `Parts.jsx › Install` | Part → Installation Guide |
+| 10 | Video Tutorial | `Parts.jsx › Video` | Part → Video Tutorial / Video tab |
+| 11 | Website Home (Desktop) | `screens/Website.jsx` | "Website" switch (or `/?web`) |
+| – | Explore, Cart, Checkout, Orders, Profile | `Home.jsx › Explore`, `screens/Shop.jsx` | bottom nav (not in the reference; must use the same theme) |
 
-- [ ] Only one accent colour: crimson `--primary #E5194A`. Lavender is only for secondary cards (promo, leaderboard, demo note).
-- [ ] No hard-coded colours outside `:root` tokens, except battery illustrations and gradients.
-- [ ] Font is **Poppins** everywhere (check the Network tab: the font loads, with no fallback flash on titles).
-- [ ] Compact type scale: page titles 23.5px/700, section titles 14.5px/600, body 12.5–13.5px, captions 10.5–11.5px. No other random sizes.
-- [ ] Corner radii come from the scale only: 12 / 14 / 18 / 22px, pills 999px.
-- [ ] Screen side padding is **24px** on every screen (`--gutter`). Nothing touches the phone edge.
-- [ ] **Every logged-in header is red** (`--header-bg`): tab headers, the Home/Dealer greeting header, and back-button app bars. The status bar is red too, with no colour seam between them. Auth screens (Welcome/Login/OTP/Sign up) stay white.
-- [ ] Header text and icons are white; header icon buttons use the translucent white style; the unread dot is yellow on red.
-- [ ] The Home hero card is **white** and overlaps the bottom of the red header (never red on red).
-- [ ] Profile follows the reference: curved double-wave red header, centred avatar with white ring and edit badge, name + subtitle + stat chips, icon menu rows (no cards), badges on the right, centred muted Logout.
-- [ ] Cards use a 1px `--line` border (inset shadow), not mixed borders and drop shadows.
-- [ ] Icons come from lucide-react only, at size 18–22 in lists and buttons, with consistent stroke.
+## 3. Visual checklist (compare against the reference)
 
-## 2. Buttons & touch targets
+### Theme tokens (sampled from the reference pixels; do not invent new colors)
+- [ ] Navy backgrounds `#001329` / `#021B31` / tiles `#0D2843`; anatomy center glow `#2D3F58`.
+- [ ] Orange gradient `#FF9A2E → #F7811F → #EE6F12` on **every** primary button, the active segment, the active bottom-nav tab and number badges.
+- [ ] Light panels `#F1F3F5`, tiles white→`#EEF1F5`, borders `#D9DFE8`.
+- [ ] Price red `#D42A2A`, in-stock / off-badge green `#1F9D3C`, note box peach `#FDF0E0`, website link blue `#1E6FD9`.
+- [ ] Fonts: Open Sans for UI; logo wordmark in Montserrat 900 italic with **YN in orange**, plus ™.
+- [ ] Status bar shows **10:24** with signal, wifi and battery (desktop frame only).
 
-- [ ] Primary buttons are **48px high**, full width, radius 14, crimson, white 15px/600 text.
-- [ ] Secondary = light grey, Outline = crimson border, Danger = soft red. No other variants.
-- [ ] Every tap target is ≥ 40×40px (icon buttons, chips 36px high plus spacing, qty steppers 32px plus gap).
-- [ ] Two buttons side by side use `row-2` (equal grid) or the footer `1fr 1.4fr`. Never mismatched widths.
-- [ ] Disabled buttons look disabled (45% opacity) and do nothing.
-- [ ] Primary action sits in the **sticky footer** (`footer-actions`) on form/detail screens, not inside the scroll area.
-- [ ] No button text wraps onto 2 lines at 390px width.
+### Per screen (key measurements at 390 px width)
+- [ ] **1 Splash**: logo centered (~108 px mark, 39 px wordmark), 2-line caps tagline, vehicles photo full width (~280 px tall), 4 feature icons with thin dividers, 4 dots (first white), "Get Started →" 252 × 48 orange pill.
+- [ ] **2 Login**: logo, "Welcome Back" 27 px bold, 2 light fields (52 px, radius 13, icons), Remember me with white checkbox + underlined Forgot Password, full-width Login, "or continue with" lines, 3 white 56 px social circles, orange underlined Sign Up. Light streaks at top-right (blue) and right-middle (orange) only.
+- [ ] **3 Home**: logo + cart with red badge, white search bar, 4 dark vehicle tiles (orange bike, white car, white truck, green EV), banner with border and engine image and orange "Explore Now →", 4 × 2 light service tiles (Marketplace and Offers orange, Fitment green, Support blue), Shop by Category (4 photo tiles), white bottom nav with an **orange filled Home block**.
+- [ ] **4 Vehicle Selection**: back + title, segmented control (Two-Wheeler orange), light card with 3 selects (Hero logo + **bold 23 px "Hero"**, bike thumbnail + Splendor Plus, **BS6** (2019 – Present)), large bike photo with no visible box edges, orange "Explore Anatomy →".
+- [ ] **5 Anatomy**: title "Hero Splendor Plus (BS6)" + "3D Anatomy" in light blue, bike with blue hotspots and the **360° ring fully visible**, 4 outline pills (Rotate/Zoom/Pan/AR), "Major Systems" + 3 × 2 light tiles.
+- [ ] **6 Exploded**: centered 2-line title, full-screen icon, exploded photo with orange numbers, white list of 6 rows with orange number circles.
+- [ ] **7 Part Details**: navy header, white panel with 18 px top radius, image left + info right, ★ 4.7 (325 Reviews), **₹ 849.00** red, MRP struck through, green **10% OFF**, ✓ In Stock, qty stepper, orange Add to Cart, white Buy Now with red text and red ⚡, 3 perks with dividers, 3 accordion rows.
+- [ ] **8 Nut & Bolt**: headlamp + 2-line title, 5-column table (S.No / Fastener / Size / Qty / Torque), 5 fastener tiles, peach Note box with 3 bullets.
+- [ ] **9 Install**: Step by Step (light orange) / Video tabs, 5 steps with orange circles on an orange vertical line, photos on the right, thin separators.
+- [ ] **10 Video**: player with title badges, red progress bar, controls (play, 0:00 / 6:21, CC, gear, full screen), "Popular Videos" + 4 rows (thumbnail, bold title, duration).
+- [ ] **11 Website**: navy nav (logo, 6 links, user icon), wide search with orange button, cart badge 3, Login / Sign Up, hero "Explore Every Part in Interactive 3D" + orange "Select Your Vehicle →", car and bike visual on the right, 6-feature white strip, Popular Brands row (10 logos) + blue "View All →".
 
-## 3. Alignment & spacing
+### Graphics rules
+- [ ] Image pipeline (if re-cropping): native 1× crop from `qa/reference.png` (no phone-border pixels) → two AI upscales ×4 (ESRGAN-thick for clean structure + ESRGAN GANs for detail) → blend 60 % GAN for photos / clean-only for icons smaller than 40 px → dehaze (CLAHE local contrast, black-point lift) + two-radius sharpen → WebP q93. Tiny icons must not look speckled.
+- [ ] Every logo SVG uses its own gradient id (`useId`). A shared id makes the orange gear vanish on phones.
+- [ ] Photos come only from `public/assets/*.webp` (cropped from the client reference and **AI-upscaled 4× with ESRGAN**). They must look crisp with no haze, blocky edges or halos at 2× zoom. No stretched or distorted image (check `object-fit`).
+- [ ] No visible rectangle around a photo on a light or dark card (use the edge masks already in CSS).
+- [ ] Icons are line icons at a consistent stroke; colored icons only where the reference colors them.
 
-- [ ] App bar: back button left, title centred, right slot balanced (spacer when empty), so the title is truly centred.
-- [ ] List rows: icon (40px) → text (flex) → value/pill → chevron, all vertically centred.
-- [ ] Long text (dealer names, vehicles, select values) **truncates with an ellipsis** instead of breaking the layout.
-- [ ] Key-value rows: label left (muted), value right (ink), dashed divider, no divider after the last row.
-- [ ] Bottom nav: 5 equal items, active item has crimson icon + soft pill background + bold label.
-- [ ] Toasts appear at the **top** and never cover the sticky footer button.
-- [ ] Bottom sheets cover the bottom nav, have a drag handle, title, close (X) button and close on backdrop tap.
-- [ ] Content never hides behind the bottom nav or footer (check by scrolling to the very bottom of every screen).
+### Deliberate fixes of reference typos (keep them fixed)
+- "Populad Videos" → **Popular Videos**
+- Note bullet "(if (if required)." → **(if required).**
+- Fastener table row 4 S.No "3" → **4** (duplicate number)
 
-## 4. Functional workflow checks (end-to-end)
+## 4. Functional checklist (`cd qa && npm run test` automates all of it)
 
-### Customer (98765 43210 · OTP 1234)
-- [ ] Welcome → Sign up → form validation (bad phone shows error) → OTP → Home.
-- [ ] Welcome → Log in → Send OTP → OTP auto-fills → Verify → Home. A wrong OTP shows an error.
-- [ ] Home hero shows the first **active** warranty, and the progress bar matches the remaining time.
-- [ ] Register battery: Continue with empty fields shows errors → **Scan** fills serial and model → step 2 → step 3 summary → Generate → success screen with QR.
-- [ ] A duplicate serial is rejected ("already registered").
-- [ ] The new registration appears in the Warranty tab, Home count, and Profile stats.
-- [ ] Warranty card: **PDF** opens a printable certificate (Save as PDF). **Share** uses the native share sheet or copies the text.
-- [ ] An expired warranty shows the "Expired" pill and a **Find replacement** button (no Raise claim).
-- [ ] Find battery: type → brand → model → fuel (each select is disabled until the previous one is chosen) → recommendation → product detail.
-- [ ] Inverter calculator: changing quantities or hours updates load, VA, Ah and the recommendation live.
-- [ ] Dealers: search by name, area or PIN filters the list; the "No dealers" empty state shows. **Call** = `tel:` link, **Directions** opens Google Maps.
-- [ ] Raise claim: only active-warranty batteries without an open claim are listed → submit → claim screen with green banner.
-- [ ] Notifications: unread dot on the bell, **Read all** clears it, and only customer notifications are listed.
-- [ ] Profile menu: My Profile edits and saves name/email/city; My Vehicles → Add vehicle validates and saves; Settings toggles work; Logout returns to Welcome.
+- [ ] Splash dots and swipe change slides; Get Started → Login.
+- [ ] Login: fields are **pre-filled** with demo@autorynx.com / demo@123 and Login works in one tap (an empty form also logs in to the demo account); wrong email or password shows field errors; eye toggles; Forgot Password sends a link; Sign Up validates and creates the account; social buttons log in.
+- [ ] Home: every tile does something. Two/Four-Wheeler → Vehicle Select; Commercial/EV → "coming soon"; Parts Catalogue → Explore; Service & Repair → Install; Installation Videos → Video; OEM Manuals / Marketplace / Offers / Support open sheets; categories open Explore filtered; search bar → Explore.
+- [ ] Vehicle Select: brand / model / variant sheets work; models that aren't 3D-ready show "3D Model Coming Soon" (no broken screen); Four-Wheeler tab switches brands and image.
+- [ ] Anatomy: drag rotates, Rotate animates, Zoom scales, Pan moves, AR toast; hotspots show a label and a second tap opens a part or the exploded view; Major Systems open parts sheets.
+- [ ] Exploded: row ↔ marker highlight both ways; parts 4 and 5 show a ghost marker; full screen opens and closes; bottom bar adds to cart and opens Part.
+- [ ] Part: qty 1–10, Add to Cart updates the badge, Buy Now → Checkout → Place Order → Order Placed → Orders list.
+- [ ] Install: steps toggle done; Video tab switches. Video: play/pause, time moves, seek, CC, speed sheet, full screen, playlist switching.
+- [ ] Cart: qty changes the total, remove works, free delivery ≥ ₹499, checkout empties the cart.
+- [ ] Profile: My Garage → Vehicle Select; Reset Demo Data; Logout → Login.
+- [ ] Website: search / Select Your Vehicle / features / brands open the right app screen; AI Part Search accepts an image; toasts are visible on the website.
+- [ ] Real phone (≤ 600 px): full screen, no fake frame or status bar, no horizontal scroll.
+- [ ] **Phone sizes** (`cd qa && node mobile.mjs out/mobile`). It checks 360×640, 375×667, 390×700 and 412×780 and must print **ALL MOBILE CHECKS OK**:
+  - Splash **Get Started visible without scrolling** (the vehicle photo shrinks on short screens); the logo's orange gear renders; no floating Website button over the app.
+  - Login button visible on first view; Home bottom nav visible; every other screen's lower content reachable by scrolling.
+  - Open `out/mobile/360x640-splash.png` and confirm nothing is cut at the bottom.
 
-### Dealer (DL-1024 · demo@123)
-- [ ] A wrong ID or password shows field errors.
-- [ ] Dashboard counts match the Stock, Claims and Registrations data.
-- [ ] Claims: open the claim the customer raised → Start review → Start testing → Record decision (Approve/Reject sheet) → Mark completed.
-- [ ] Log back in as the customer: the claim timeline and status pill show the same stage, and the customer got a notification.
-- [ ] Issue loaner battery appears on both dealer and customer claim screens.
-- [ ] Add stock: Scan generates a serial; duplicate or invalid serials are rejected; the new item shows "In stock".
-- [ ] Register a customer warranty with phone 9876543210 → +50 points, inventory item becomes "Sold", and the warranty shows in the customer app.
-- [ ] Rewards: All-Time / This month switch re-ranks correctly; "You" is highlighted; Redeem is disabled when points are too low.
-- [ ] Verify warranty by serial or certificate ID shows Valid/Expired or a "not found" banner.
+## 5. Glitch hunt (manual, 2 minutes)
+- [ ] Rapidly tap back / forward: no blank page, no double animation.
+- [ ] Open a sheet and press Esc or tap the backdrop: it closes; Esc elsewhere = back.
+- [ ] No text overflowing a pill, button or card at 390 px width.
+- [ ] Toasts never hide a primary button for more than 2 s.
+- [ ] Refreshing the page keeps the login, cart, orders and vehicle (localStorage).
 
-## 5. Data mismatch checks
+## 6. Deploy check
+- [ ] `npm run build` passes; `vercel.json` SPA rewrite present; Vercel framework **Vite**, output `dist`.
+- [ ] After deploy, open the live URL on a real Android phone and repeat section 4 quickly.
 
-- [ ] Status labels are identical everywhere: claim pill (list) = claim pill (detail) = timeline stage = home card.
-- [ ] Dates use one format: `25 Nov 2026` (`fmtDate`). No ISO strings visible in the UI.
-- [ ] Phone numbers are shown as `+91 98765 43210` (`fmtPhone`).
-- [ ] Prices are shown as `₹7,890` (`inr`). Warranty is in months (`48m` / `48-month`), consistently.
-- [ ] Counts on Home/Profile/Dealer dashboard come from state and are never hard-coded.
-- [ ] Customer never sees dealer-only data (points, inventory, dealer notifications), and vice versa.
-- [ ] Product names, capacities and warranty periods match `src/data.js` on every screen.
+## 7. Issue log
 
-## 6. Android-native feel
-
-- [ ] Android-style status bar (time left, punch-hole centre, signal/wifi/battery right) and a gesture pill at the bottom (desktop frame only).
-- [ ] Material-style bottom navigation with an active indicator pill.
-- [ ] Screen push/back slide animations; tab switches fade (no slide).
-- [ ] Back arrow and **Esc** key both go back. On step 2/3 of a form, the app-bar back arrow goes to the previous step, not out of the form.
-- [ ] Bottom sheets are used for pickers instead of browser `<select>` dropdowns.
-- [ ] There is no text selection highlight or blue tap flash on buttons.
-
-## 7. Bad-looking things to hunt for
-
-- [ ] Text overlapping, clipped, or touching card edges.
-- [ ] Two different greys or reds that look "almost the same".
-- [ ] Empty states without an icon and a helpful action.
-- [ ] Huge empty gaps on short screens (forms should keep actions in the footer).
-- [ ] Horizontal scrollbars anywhere (except intentional chip rows, which hide the scrollbar).
-- [ ] Console errors or React key warnings in DevTools.
-- [ ] Images or illustrations stretched or blurry.
-
-## 8. Deploy check (Vercel)
-
-- [ ] `npm run build` passes locally.
-- [ ] `vercel.json` rewrites all routes to `/` (SPA).
-- [ ] Framework preset **Vite**, build command `npm run build`, output dir `dist`, root dir = this folder.
-- [ ] After deploy, open the URL on a real Android phone and re-run section 4 quickly.
-
----
-
-### Issue log template
-
-| # | Screen | Problem (design / function / mismatch) | Severity | Fixed? |
+| # | Screen | Difference / bug | Score impact | Fixed? |
 |---|---|---|---|---|
-| 1 | | | High / Med / Low | ☐ |
+| 1 | | | | ☐ |
+
+### Last run (this build)
+| Screen | Score | Notes |
+|---|---|---|
+| 1 Splash | 97 | Logo is a vector rebuild (sharper than the reference raster) |
+| 2 Login | 96 | Light streaks approximated with CSS |
+| 3 Home | 96 | Vehicle-type icons are line icons (reference: filled illustrations) |
+| 4 Vehicle Select | 95 | Photo upscaled from the reference (soft) |
+| 5 Anatomy | 96 | Extra blue hotspot on the headlamp (needed for the exploded-view flow) |
+| 6 Exploded | 97 | – |
+| 7 Part Details | 97 | – |
+| 8 Nut & Bolt | 97 | Reference typos corrected |
+| 9 Install | 97 | – |
+| 10 Video | 97 | "Popular" typo corrected |
+| 11 Website | 95 | Browser chrome is a generic bar |
+| Functional | 70 / 70 | 0 console errors |

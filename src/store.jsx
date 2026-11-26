@@ -1,107 +1,31 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react'
-import { CLAIM_STAGES, dealerById, nowStamp, productById, rid, seedState, todayISO } from './data'
+import { CATALOGUE, seed } from './data'
 
-const KEY = 'ampcare-demo-v2'
-const DEMO_DEALER_ID = 'd1'
-
+const KEY = 'autorynx-demo-v1'
 const load = () => {
-  try {
-    const raw = localStorage.getItem(KEY)
-    if (raw) return { ...seedState(), ...JSON.parse(raw) }
-  } catch { /* storage unavailable – fall back to seed */ }
-  return seedState()
+  try { const raw = localStorage.getItem(KEY); if (raw) return { ...seed(), ...JSON.parse(raw) } } catch { /* ignore */ }
+  return seed()
 }
-
-// Each notification belongs to one audience: 'customer' or 'dealer'
-const note = (to, title, body, kind = 'info') => ({ id: rid('n'), to, title, body, at: todayISO(), read: false, kind })
-const notify = (s, ...notes) => [...notes.filter(Boolean), ...s.notifications]
 
 function reducer(s, a) {
   switch (a.type) {
-    case 'login':
-      return { ...s, session: { role: a.role } }
-    case 'logout':
-      return { ...s, session: null }
-    case 'signup':
-      return { ...s, customer: { ...s.customer, ...a.data } }
-    case 'updateSettings':
-      return { ...s, settings: { ...s.settings, ...a.data } }
-    case 'addVehicle':
-      return { ...s, vehicles: [...s.vehicles, { id: rid('v'), ...a.data }] }
-    case 'readAll':
-      return { ...s, notifications: s.notifications.map((n) => (n.to === a.role ? { ...n, read: true } : n)) }
-
-    case 'addRegistration': {
-      const reg = a.reg
-      const inv = s.inventory.map((i) => (i.serial === reg.serial ? { ...i, status: 'Sold' } : i))
-      const isDemoDealer = reg.dealerId === DEMO_DEALER_ID
-      const points = isDemoDealer
-        ? { balance: s.points.balance + 50, history: [{ id: rid('p'), label: `Verified registration · ${reg.id}`, at: todayISO(), pts: 50 }, ...s.points.history] }
-        : s.points
-      return {
-        ...s,
-        registrations: [reg, ...s.registrations],
-        inventory: inv,
-        points,
-        notifications: notify(
-          s,
-          reg.ownerPhone === s.customer.phone && note('customer', 'Warranty registered', `${productById(reg.productId).name} · Certificate ${reg.id} is ready.`, 'warranty'),
-          isDemoDealer && note('dealer', `New registration · ${reg.id}`, `${reg.owner} · ${productById(reg.productId).name}. +50 points credited.`, 'warranty'),
-        ),
-      }
+    case 'login': return { ...s, user: a.user, remember: a.remember ?? s.remember }
+    case 'logout': return { ...s, user: null }
+    case 'setVehicle': return { ...s, vehicle: { ...s.vehicle, ...a.data } }
+    case 'addToCart': {
+      const ex = s.cart.find((c) => c.id === a.id)
+      return { ...s, cart: ex ? s.cart.map((c) => (c.id === a.id ? { ...c, qty: c.qty + a.qty } : c)) : [...s.cart, { id: a.id, qty: a.qty }] }
     }
-
-    case 'addClaim': {
-      const reg = s.registrations.find((r) => r.id === a.claim.regId)
-      return {
-        ...s,
-        claims: [a.claim, ...s.claims],
-        notifications: notify(
-          s,
-          note('customer', `Claim ${a.claim.id} submitted`, `Sent to ${dealerById(a.claim.dealerId).name} for review.`, 'claim'),
-          a.claim.dealerId === DEMO_DEALER_ID && note('dealer', `New claim ${a.claim.id}`, `${reg?.owner} · ${a.claim.issue}. Please review.`, 'claim'),
-        ),
-      }
+    case 'setQty': return { ...s, cart: s.cart.map((c) => (c.id === a.id ? { ...c, qty: Math.max(1, a.qty) } : c)) }
+    case 'removeItem': return { ...s, cart: s.cart.filter((c) => c.id !== a.id) }
+    case 'placeOrder': {
+      const items = a.items.map((c) => `${CATALOGUE.find((p) => p.id === c.id).name} × ${c.qty}`).join(', ')
+      const order = { id: 'AX-' + Math.floor(240700 + Math.random() * 9000), date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }), items, total: a.total, status: 'Confirmed' }
+      return { ...s, orders: [order, ...s.orders], cart: a.fromCart ? [] : s.cart, lastOrder: order }
     }
-
-    case 'advanceClaim': {
-      let title = ''
-      const claims = s.claims.map((c) => {
-        if (c.id !== a.id) return c
-        const next = Math.min(c.stage + 1, CLAIM_STAGES.length - 1)
-        const decision = next === 3 ? a.decision : c.decision
-        const label = next === 3 ? (decision === 'approved' ? 'Replacement Approved' : 'Claim Rejected') : CLAIM_STAGES[next]
-        title = `Claim ${c.id}: ${label}`
-        return {
-          ...c,
-          stage: next,
-          decision,
-          history: [...c.history, { stage: next, at: nowStamp(), note: a.note || label }],
-          loaner: next === 4 && c.loaner ? { ...c.loaner, returned: true } : c.loaner,
-        }
-      })
-      return { ...s, claims, notifications: notify(s, note('customer', title, 'Open Claims to view the latest status.', 'claim')) }
-    }
-
-    case 'issueLoaner':
-      return {
-        ...s,
-        claims: s.claims.map((c) => (c.id === a.id ? { ...c, loaner: { model: a.model, issued: todayISO(), due: a.due, returned: false } } : c)),
-      }
-
-    case 'addInventory':
-      return { ...s, inventory: [{ serial: a.serial, productId: a.productId, addedOn: todayISO(), status: 'In stock' }, ...s.inventory] }
-
-    case 'redeem':
-      return {
-        ...s,
-        points: { balance: s.points.balance - a.pts, history: [{ id: rid('p'), label: `Redeemed · ${a.label}`, at: todayISO(), pts: -a.pts }, ...s.points.history] },
-      }
-
-    case 'reset':
-      return { ...seedState(), session: s.session }
-    default:
-      return s
+    case 'toggleStep': return { ...s, doneSteps: s.doneSteps.includes(a.i) ? s.doneSteps.filter((x) => x !== a.i) : [...s.doneSteps, a.i] }
+    case 'reset': return { ...seed(), user: s.user }
+    default: return s
   }
 }
 
@@ -111,50 +35,42 @@ const ToastCtx = createContext(null)
 
 export function AppProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, undefined, load)
+  useEffect(() => { try { localStorage.setItem(KEY, JSON.stringify(state)) } catch { /* ignore */ } }, [state])
 
-  useEffect(() => {
-    try { localStorage.setItem(KEY, JSON.stringify(state)) } catch { /* ignore */ }
-  }, [state])
-
-  // ── Navigation: tab roots + a push stack (Android-style back) ──
-  const role = state.session?.role
-  const [authStack, setAuthStack] = useState([{ name: 'welcome' }])
+  const loggedIn = !!state.user
+  const [authStack, setAuthStack] = useState([{ name: 'splash' }])
   const [tab, setTab] = useState('home')
   const [stack, setStack] = useState([])
-  const [dir, setDir] = useState('fwd')
+  const [dir, setDir] = useState('none')
 
-  const nav = useMemo(() => ({
-    tab,
-    stack,
-    authStack,
-    dir,
-    push: (name, params = {}) => { setDir('fwd'); if (!role) setAuthStack((st) => [...st, { name, params }]); else setStack((st) => [...st, { name, params }]) },
-    replace: (name, params = {}) => { setDir('fwd'); if (!role) setAuthStack((st) => [...st.slice(0, -1), { name, params }]); else setStack((st) => [...st.slice(0, -1), { name, params }]) },
-    back: () => { setDir('back'); if (!role) setAuthStack((st) => (st.length > 1 ? st.slice(0, -1) : st)); else setStack((st) => st.slice(0, -1)) },
-    popToRoot: () => { setDir('back'); setStack([]) },
-    switchTab: (t) => { setDir('none'); setStack([]); setTab(t) },
-    resetAuth: () => { setDir('back'); setAuthStack([{ name: 'welcome' }]) },
-    goTab: (t, name, params = {}) => { setDir('fwd'); setTab(t); setStack(name ? [{ name, params }] : []) },
-  }), [tab, stack, authStack, dir, role])
-
-  // reset navigation when the session changes
-  const prevRole = useRef(role)
-  useEffect(() => {
-    if (prevRole.current !== role) {
-      setStack([])
-      setTab('home')
-      setAuthStack([{ name: 'welcome' }])
-      prevRole.current = role
+  const nav = useMemo(() => {
+    const set = loggedIn ? setStack : setAuthStack
+    return {
+      tab, stack, authStack, dir,
+      push: (name, params = {}) => { setDir('fwd'); set((st) => [...st, { name, params }]) },
+      replace: (name, params = {}) => { setDir('fwd'); set((st) => [...st.slice(0, -1), { name, params }]) },
+      back: () => { setDir('back'); set((st) => (loggedIn ? st.slice(0, -1) : st.length > 1 ? st.slice(0, -1) : st)) },
+      switchTab: (t) => { setDir('none'); setStack([]); setTab(t) },
+      goTab: (t, name, params = {}) => { setDir('fwd'); setTab(t); setStack(name ? [{ name, params }] : []) },
+      resetTo: (list) => { setDir('fwd'); setStack(list) },
+      toLogin: () => { setDir('fwd'); setAuthStack([{ name: 'splash' }, { name: 'login' }]) },
     }
-  }, [role])
+  }, [tab, stack, authStack, dir, loggedIn])
 
-  // ── Toast ──
+  const prev = useRef(loggedIn)
+  useEffect(() => {
+    if (prev.current !== loggedIn) {
+      setStack([]); setTab('home'); setAuthStack(loggedIn ? [{ name: 'splash' }] : [{ name: 'login' }]); setDir('fwd')
+      prev.current = loggedIn
+    }
+  }, [loggedIn])
+
   const [toast, setToast] = useState(null)
   const timer = useRef()
-  const showToast = useCallback((msg, kind = 'ok') => {
+  const showToast = useCallback((msg) => {
     clearTimeout(timer.current)
-    setToast({ msg, kind, key: Date.now() })
-    timer.current = setTimeout(() => setToast(null), 2000)
+    setToast({ msg, key: Date.now() })
+    timer.current = setTimeout(() => setToast(null), 1900)
   }, [])
 
   return (
@@ -169,4 +85,4 @@ export function AppProvider({ children }) {
 export const useStore = () => useContext(StoreCtx)
 export const useNav = () => useContext(NavCtx)
 export const useToast = () => useContext(ToastCtx)
-export { DEMO_DEALER_ID }
+export const useCartCount = () => { const { state } = useStore(); return state.cart.reduce((t, c) => t + c.qty, 0) }

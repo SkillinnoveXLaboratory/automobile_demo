@@ -1,0 +1,14 @@
+{
+  "name": "autorynx-qa",
+  "private": true,
+  "type": "module",
+  "description": "Visual + functional QA for the AUTORYNX prototype (not part of the deployed app)",
+  "scripts": {
+    "compare": "node compare.mjs out/compare",
+    "test": "node functest.mjs out/func"
+  },
+  "dependencies": {
+    "puppeteer-core": "^24.0.0",
+    "sharp": "^0.34.0"
+  }
+}

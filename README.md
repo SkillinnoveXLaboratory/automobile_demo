@@ -1,53 +1,28 @@
-# AmpCare — Automotive Battery & Warranty App (Prototype)
+# AUTORYNX — The Complete Automotive Ecosystem (Prototype)
 
-A clickable, Android-style prototype of the **Automotive Battery & Warranty Management Platform**. It is built with React and Vite.
-On desktop it renders inside an Android phone frame. On a real phone it runs full-screen like a native app.
+A clickable prototype of the AUTORYNX Android app plus its desktop website. It is built with React and Vite to match the client reference (`qa/reference.png`, 11 screens).
+On desktop the app shows inside a phone frame, and a **Mobile App / Website** switch shows screen 11. On a real phone it opens full-screen.
 
-## Demo logins
+## Demo login
+- **Email:** `demo@autorynx.com` · **Password:** `demo@123`
+- The login form is **pre-filled** with these credentials, so the client just taps **Login**. Clearing the fields and tapping Login also signs in to the demo account.
 
-| Role | Login |
-|---|---|
-| Customer | Mobile `98765 43210`, OTP `1234` |
-| Dealer | Dealer ID `DL-1024`, password `demo@123` |
+## Screens
+Splash · Login / Sign Up / Forgot · Home Dashboard · Vehicle Selection · 3D Vehicle Anatomy · Exploded View · Part Details & Buy · Nut & Bolt · Installation Steps · Video Tutorial · Website Home. There are also Explore, Cart, Checkout, Order Placed, Orders and Profile screens in the same theme.
 
-Both roles share one demo database stored in the browser's localStorage, so a claim raised by the customer can be processed by the dealer.
-To restore the sample data, go to Profile → Settings → **Reset demo data**.
-
-## Modules covered
-
-- **Customer:** OTP login and sign-up, digital warranty registration (3 steps plus scan), QR warranty card and PDF download, battery finder by vehicle fitment, inverter backup calculator, warranty claims with live tracking, loaner battery, dealer and service locator (call or directions), notifications, profile, vehicles and settings.
-- **Dealer:** dashboard, serial or inventory registration, customer warranty registration, claim processing (review → test → approve/reject → complete), loaner issue, warranty verification, loyalty points leaderboard and redemption.
-
-## Run locally
-
+## Run
 ```bash
 npm install
-npm run dev       # http://localhost:5173
-npm run build     # production build in dist/
+npm run dev        # http://localhost:5173  (add ?web to open the website view)
+npm run build
 ```
 
-## Deploy on Vercel
-
-1. Push this folder to GitHub, or run `npx vercel` from inside it.
-2. Use these settings: Framework **Vite**, Build `npm run build`, Output `dist`.
-3. `vercel.json` already contains the SPA rewrite.
+## Deploy (Vercel)
+Import the repo, choose Framework **Vite** (build `npm run build`, output `dist`). `vercel.json` already contains the SPA rewrite. The `qa/` folder is not part of the build.
 
 ## QA
+Follow [skills.md](skills.md). `qa/compare.mjs` builds side-by-side reference/app images, `qa/functest.mjs` runs 70 functional checks, and `qa/mobile.mjs` checks 4 real phone sizes for cut-off content.
 
-Before every demo, run the checklist in [skills.md](skills.md).
-
-## Structure
-
-```
-src/
-  data.js            demo catalogue, fitment map, dealers, seed data, helpers
-  store.jsx          state (reducer + localStorage), navigation stack, toasts
-  styles.css         design tokens + all component styles
-  App.jsx            phone frame, routing, bottom nav, demo guide panel
-  components/ui.jsx  StatusBar, AppBar, Button, Field, Select (bottom sheet), Chips, Tabs, Pill, QR, BatteryArt…
-  screens/
-    Auth.jsx         Welcome, Login, OTP, Sign up
-    Customer.jsx     Home, Warranty list/card, Claims, New claim, Notifications, Profile
-    Shared.jsx       Finder, Product, Inverter, Dealers, Register warranty, Claim tracking
-    Dealer.jsx       Dealer home, Inventory, Add stock, Verify, Claims, Rewards, Profile
-```
+## Notes
+- Photos in `public/assets/` are cropped from the client reference, **AI-upscaled 4× with two ESRGAN models** (clean + GAN detail, blended), then dehazed and sharpened and saved as high-quality WebP. For production, replace them with the client's original HD renders using the same file names (`.webp`).
+- Brand logos are shown only as vehicle-compatibility references.
